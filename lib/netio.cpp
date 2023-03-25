@@ -2,6 +2,17 @@
 
 using namespace std;
 
+struct sockaddr_in createAddr(char *ip, int port){
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    if (inet_aton(ip, &addr.sin_addr) == 0) {
+        cerr << "inet_aton() failed" << endl;
+        exit(1);
+    }
+    return addr;
+}
 
 int openSocket(int port) {
     int serv_sock;
@@ -13,52 +24,49 @@ int openSocket(int port) {
         exit(1);
     }
 
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_addr.sin_port = htons(port);
-
-    if (bind(serv_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
-        cerr << "Unable to bind 0.0.0.0:" << port << endl;
-        exit(1);
+    if(port != -1) {
+        memset(&serv_addr, 0, sizeof(serv_addr));
+        serv_addr = createAddr((char *)"0.0.0.0", port);
+        
+        if (bind(serv_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
+            cerr << "Unable to bind 0.0.0.0:" << port << endl;
+            exit(1);
+        }
     }
-
 	return serv_sock;
 }
 
-/* inline int send(int socket, string message, struct sockaddr_in dest_addr, socklen_t dest_addr_size) { */
-/* 	return sendto(socket, message.c_str(), message.size(), 0, (struct sockaddr*)&dest_addr, &dest_addr_size); */
-/* } */
+inline void sendUDP(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) {
+    sendto(socket, &request, sizeof(request), 0, (struct sockaddr*)&server_addr, server_addr_size);
+}
 
-void netio_test() {
-
-    const int buf_size = 1024 * 64;
-    char buf[buf_size];
-
-    int socket = openSocket(8888);
+struct datagram sendUDPrequest(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) {
+    struct datagram reply;
+    fd_set read_fds;
+    struct timeval timeout;
     
-    struct sockaddr_in client_addr;
-    socklen_t client_addr_size = sizeof(client_addr);
-
+    FD_ZERO(&read_fds);
+    FD_SET(socket, &read_fds);
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+    
     while(1) {
-        
-        memset(buf, 0, buf_size);
-        memset(&client_addr, 0, client_addr_size);
-
-        int recv_size;
-        recv_size = recvfrom(socket, buf, buf_size, 0, (struct sockaddr*)&client_addr, &client_addr_size);
-        
-        if(recv_size == -1) {
-            perror("Unable to read data");
-            continue;
-        }
-
-        printf("Received message from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-        printf("Message: %s\n", buf);
-
-        if(sendto(socket, buf, recv_size, 0, (struct sockaddr*)&client_addr, client_addr_size) == -1) {
-            cerr << "Unable to send message" << endl;;
-            exit(1);
+        sendUDP(socket, request, server_addr, server_addr_size);
+        if(select(socket + 1, &read_fds, NULL, NULL, &timeout) <= 0) 
+            cerr << "Unable to communicate with server. Retrying." << endl;
+        else {
+            struct sockaddr_in serv_addr;
+            socklen_t serv_addr_size;
+            int recv_size = recvfrom(socket, &reply, sizeof(reply), 0, (struct sockaddr*)&serv_addr, &serv_addr_size);
+            if(recv_size < -1) {
+                cerr << "recvform failed. Retrying" << endl;
+                continue;
+            }
+            if(recv_size != sizeof(reply)) {
+                cerr << "Data corruption. Retrying" << endl;
+                continue;
+            }
+            return reply;
         }
     }
 }

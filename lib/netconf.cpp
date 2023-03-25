@@ -2,16 +2,6 @@
 
 using namespace std;
 
-/* boost::asio::ip::address source_address( */
-/*   const boost::asio::ip::address& ip_address) { */
-/*   using boost::asio::ip::udp; */
-/*   boost::asio::io_service service; */
-/*   udp::socket socket(service); */
-/*   udp::endpoint endpoint(ip_address, 3478); */
-/*   socket.connect(endpoint); */
-/*   return socket.local_endpoint().address(); */
-/* } */
-
 vector<pair<pair<string, string>, string>> addedRoutes;
 
 string pickDevName() {

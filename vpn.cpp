@@ -1,10 +1,9 @@
 #include <bits/stdc++.h>
 #include <netconf.h>
 #include <netio.h>
+#include <essential.h>
 
 using namespace std;
-
-
 
 void sig_handler(int signum){
     delRoutes();
@@ -12,26 +11,23 @@ void sig_handler(int signum){
         exit(0);
 }
 
-void sniffer(int tun){
-    const int buf_size = 1024 * 64;
-    char buf[buf_size];
-
-	while(1) {
-        int n = read(tun, buf, buf_size);
-        cout << n << ": " << buf << endl;
-	}
-}
-
-int main() {
+int main(int argc, char** argv) {
     signal(SIGINT,sig_handler);
     
-    char *devName = (char *)pickDevName().c_str();
-    int tun = tun_alloc(devName);
-	configTun(devName, tun);
-    modifyRoute("2.2.2.0", "255.255.255.0", "172.16.1.1", SIOCADDRT);
-
-    // netio_test();
-    // sniffer(tun);
+    int service = -1;
+    for(int i = 0; i < argc; i++) {
+        if(strcmp(argv[i], "-s") == 0) service = 1;
+        if(strcmp(argv[i], "-c") == 0) service = 0;
+    }
     
+    if(service == 1)
+        launchServer();
+    else if(service == 0)
+        launchClient();
+    else {
+        cerr << "Unspecified service type." << endl;
+        exit(1);
+    }
+
     return 0;
 }
