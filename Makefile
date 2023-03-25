@@ -13,7 +13,7 @@ test_server:
 	
 test_client:
 	make 
-	./vpn -c
+	./vpn -c -h 0.0.0.0 -r test_room -p abc123 create
 
 clean :
 	rm vpn

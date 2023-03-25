@@ -45,13 +45,14 @@ struct datagram sendUDPrequest(int socket, struct datagram request, struct socka
     fd_set read_fds;
     struct timeval timeout;
     
-    FD_ZERO(&read_fds);
-    FD_SET(socket, &read_fds);
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
     
     while(1) {
+        FD_ZERO(&read_fds);
+        FD_SET(socket, &read_fds);
+
         sendUDP(socket, request, server_addr, server_addr_size);
+        timeout.tv_sec = 5;
+        timeout.tv_usec = 0;
         if(select(socket + 1, &read_fds, NULL, NULL, &timeout) <= 0) 
             cerr << "Unable to communicate with server. Retrying." << endl;
         else {
@@ -64,6 +65,12 @@ struct datagram sendUDPrequest(int socket, struct datagram request, struct socka
             }
             if(recv_size != sizeof(reply)) {
                 cerr << "Data corruption. Retrying" << endl;
+                continue;
+            }
+            if(serv_addr.sin_addr.s_addr != server_addr.sin_addr.s_addr) {
+                cerr << "Unexpected sender. Retrying." << endl;
+                cout << serv_addr.sin_addr.s_addr << " received, expected " << server_addr.sin_addr.s_addr << endl;
+                
                 continue;
             }
             return reply;

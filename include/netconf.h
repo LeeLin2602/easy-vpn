@@ -27,6 +27,6 @@ using namespace std;
 
 string pickDevName();
 int tun_alloc(char *dev);
-void configTun(char* devName, int tun);
+void configTun(char *devName, int tun, char *IP);
 void modifyRoute(string dst, string mask, string gw, int opr);
 void delRoutes();

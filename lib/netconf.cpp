@@ -4,27 +4,32 @@ using namespace std;
 
 vector<pair<pair<string, string>, string>> addedRoutes;
 
-string pickDevName() {
-    set<string> devNames;
+int checkDevName(string devName) {
 
-    struct ifaddrs * addresses;
-
-    if (getifaddrs( & addresses) == -1) {
-        cerr << "getifaddrs call failed\n";
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock == -1) {
+        perror("Cannot open socket");
         exit(1);
     }
 
-    struct ifaddrs * address = addresses;
-    while (address) {
-        int family = address -> ifa_addr -> sa_family;
-        if (family == AF_INET || family == AF_INET6)
-            devNames.insert(address -> ifa_name);
-        address = address -> ifa_next;
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, (char *)devName.c_str(), IFNAMSIZ - 1);
+
+    if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
+		return 0;
+        close(sock);
+        exit(1);
     }
-    freeifaddrs(addresses);
+
+    close(sock);
+    return 1;
+}
+
+string pickDevName() {
     for(int i = 0;; i++) {
         string devName = "tun"; devName += to_string(i);
-        if(devNames.count(devName) == 0)
+        if(checkDevName(devName) == 0)
             return devName;
     }
 }
@@ -59,7 +64,7 @@ int tun_alloc(char *dev) {
     /*     << source_address(destination_address).to_string() */
     /*     << '\n'; */
 
-void configTun(char* devName, int tun) {
+void configTun(char* devName, int tun, char *IP) {
     int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
     struct ifreq ifr;
     strncpy(ifr.ifr_name, devName, IFNAMSIZ);
@@ -67,7 +72,7 @@ void configTun(char* devName, int tun) {
     struct sockaddr_in* addr = (struct sockaddr_in*)&ifr.ifr_addr;
     ifr.ifr_addr.sa_family = AF_INET;
 
-    inet_pton(AF_INET, "172.16.1.1", &addr->sin_addr);
+    inet_pton(AF_INET, IP, &addr->sin_addr);
     ioctl(fd, SIOCSIFADDR, &ifr);
 
     inet_pton(AF_INET, "255.255.255.0", &addr->sin_addr);
