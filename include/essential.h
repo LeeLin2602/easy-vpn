@@ -20,6 +20,5 @@ struct datagram {
 };
 
 void sniffer(int tun);
-/* void launchUDPserver(); */
 void launchClient(char *server_ip, int service_port, char *room_name, char *room_pswd, char *ip_pool, int action = 0);
 void launchServer(int service_port);

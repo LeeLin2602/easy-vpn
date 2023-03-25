@@ -1,11 +1,14 @@
 
 LIBDIR = lib/
 LIB := $(shell find $(LIBDIR) -name '*.cpp')
+# CRYPTOLIB = cryptopp870/
+# CRYPTO := $(shell find $(CRYPTODIR) -name '*.cpp')
+
 args = `arg="$(filter-out $@,$(MAKECMDGOALS))" && echo $${arg:-${1}}`
 
 
-vpn : vpn.cpp $(LIB)
-	g++ -o $@ $^ -g -Wall -l pthread -I include --std=c++17
+vpn : vpn.cpp $(LIB) # $(CRYPTO)
+	g++ -o $@ $^ -g -Wall -l pthread -I include -I cryptopp870 --std=c++17
 
 test_server:
 	make 
