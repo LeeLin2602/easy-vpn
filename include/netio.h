@@ -9,6 +9,7 @@
 
 
 int openSocket(int port);
-struct sockaddr_in createAddr(char *ip, int port);
-inline void sendUDP(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) ;
+pair<string, int> convertAddr(struct sockaddr_in addr);
+struct sockaddr_in createAddr(string, int port);
+void sendUDP(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) ;
 struct datagram sendUDPrequest(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size);

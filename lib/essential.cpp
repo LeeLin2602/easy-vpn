@@ -5,8 +5,6 @@ string hashDatagram(struct datagram &data) {
 	for(int i = 0; data.room[i]; i++) message += data.room[i];
     for(int i = 0; i < data.length; i++) message += data.payload[i];
     message += to_string(data.action);
-    /* message += ","; */
-    /* message += to_string(data.ip); */
     return sha256(message);
 }
 
@@ -31,6 +29,24 @@ void sniffer(int socket, int tun, struct sockaddr_in server_addr, char *room_nam
         socklen_t serv_addr_size = sizeof(serv_addr);
 
         sendUDP(socket, traffic, serv_addr, serv_addr_size);
+    }
+
+}
+
+void pulse(int socket, struct sockaddr_in server_addr, char *room_name){
+
+    while(1) {
+
+        struct datagram pulse; memset(&pulse, 0, sizeof(pulse));
+        strcpy(pulse.room, room_name);
+	    pulse.action = heartbeat;	
+        pulse.length = 0;
+
+        struct sockaddr_in serv_addr = server_addr;
+        socklen_t serv_addr_size = sizeof(serv_addr);
+
+        sendUDP(socket, pulse, serv_addr, serv_addr_size);
+        sleep(5);
     }
 
 }
@@ -64,7 +80,8 @@ string requestIP(int socket, struct sockaddr_in server_addr, char *room_name, ch
     
     request.action = request_ip;
     strcpy(request.room, room_name);
-    request.length = 0;
+    request.length = 64;
+    strcpy(request.payload, (char *)sha256(sha256(room_pswd)).c_str());
 
     reply = sendUDPrequest(socket, request, serv_addr, serv_addr_size);
     cout << reply.action << ": " << reply.payload << endl;
@@ -136,14 +153,15 @@ void launchClient(char *server_ip, int service_port, char *room_name, char *room
     configTun(devName, tun, (char *)requestIP(socket, server, room_name, room_pswd).c_str()); 
     
     thread UDPClientThread(UDPClient, socket, tun, server_ip, room_pswd);
+    thread heartbeatThread(pulse, ref(socket), ref(server), ref(room_name));
     sniffer(socket, tun, server, room_name, room_pswd);
 
     UDPClientThread.join();
+    heartbeatThread.join();
 }
 
 
 void launchUDPserver(Server *server, int service_port) {
-    
     int socket = openSocket(service_port);
 
     struct sockaddr_in client_addr;
@@ -169,11 +187,12 @@ void launchUDPserver(Server *server, int service_port) {
             continue;
         }
 
-        printf("Received message from %s:%d with size %d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), recv_size);
-        printf("Room: %s\n", packet_in.room);
-        printf("Action: %d\n", packet_in.action);
-        printf("Length: %d\n", packet_in.length);
-        printf("Payload: "); for(int i = 0; i < packet_in.length; i++) printf("%c", packet_in.payload[i]); printf("\n");
+        pair<string, int> clientAddr = convertAddr(client_addr);
+        /* printf("Received message from %s:%d with size %d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), recv_size); */
+        /* printf("Room: %s\n", packet_in.room); */
+        /* printf("Action: %d\n", packet_in.action); */
+        /* printf("Length: %d\n", packet_in.length); */
+        /* printf("Payload: "); for(int i = 0; i < packet_in.length; i++) printf("%c", packet_in.payload[i]); printf("\n"); */
         if(strcmp(packet_in.checksum, hashDatagram(packet_in).c_str())) {
             // corruption, drop the packet
             cerr << "Corruption." << endl;
@@ -191,8 +210,9 @@ void launchUDPserver(Server *server, int service_port) {
                 }
                 server -> createRoom(packet_in.room, pswd, ip_pool);
                 packet_out.action = success;
-                strcpy(packet_out.payload, "Ok!");
+                strcpy(packet_out.payload, "Room created!");
                 packet_out.length = strlen(packet_out.payload);
+
             } else {
                 packet_out.action = error;
                 strcpy(packet_out.payload, "Room exists!");
@@ -205,38 +225,47 @@ void launchUDPserver(Server *server, int service_port) {
             strcpy(packet_out.payload, "Room not exists.");
             packet_out.length = strlen(packet_out.payload);
         } else if(packet_in.action == request_ip) {
-            unsigned IP = server -> rooms[packet_in.room] -> getIP(client_addr);
-            if(IP != 0) {
-                struct in_addr ip_addr;
-                ip_addr.s_addr = htonl(IP);
-
-                packet_out.action = offer_ip;
-                strcpy(packet_out.payload, inet_ntoa(ip_addr));
+            if(!server -> rooms[packet_in.room] -> authenticate(packet_in.payload)) {
+                packet_out.action = error;
+                strcpy(packet_out.payload, "Wrong password.");
                 packet_out.length = strlen(packet_out.payload);
             } else {
-                packet_out.action = error;
-                strcpy(packet_out.payload, "No capability.");
-                packet_out.length = strlen(packet_out.payload);
+                unsigned IP = server -> rooms[packet_in.room] -> getIP(convertAddr(client_addr));
+                if(IP != 0) {
+                    struct in_addr ip_addr;
+                    ip_addr.s_addr = htonl(IP);
+
+                    packet_out.action = offer_ip;
+                    strcpy(packet_out.payload, inet_ntoa(ip_addr));
+                    packet_out.length = strlen(packet_out.payload);
+
+                    server -> join(clientAddr, packet_in.room);
+                } else {
+                    packet_out.action = error;
+                    strcpy(packet_out.payload, "No capability.");
+                    packet_out.length = strlen(packet_out.payload);
+                }
             }
         } else if(packet_in.action == forward_traffic) {
-            for(auto [ip, addr]: server -> rooms[packet_in.room] -> table) {
-                struct sockaddr_in guest = createAddr(inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+            for(auto [addr, ip]: server -> rooms[packet_in.room] -> table) {
+                struct sockaddr_in guest = createAddr(addr.first, addr.second);
                 if(strcmp(inet_ntoa(guest.sin_addr), inet_ntoa(client_addr.sin_addr)) == 0 and guest.sin_port == client_addr.sin_port) {
-                    cout << "EQ" << endl;
                     continue;
                 }
                 socklen_t guest_size = sizeof(guest);
                 sendUDP(socket, packet_in, guest, guest_size);
             }
+        } else if(packet_in.action == heartbeat) {
+            server -> timer.update(clientAddr);
         }
         
         sendUDP(socket, packet_out, client_addr, client_addr_size);
     }
-
 }
 
 void launchServer(int service_port) {
     Server *server = new Server();
-	launchUDPserver(server, service_port);
-
+	thread UDPServerThread(launchUDPserver, server, service_port);
+    server -> recycle();
+    UDPServerThread.join();
 }

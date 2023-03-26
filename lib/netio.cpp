@@ -2,16 +2,20 @@
 
 using namespace std;
 
-struct sockaddr_in createAddr(char *ip, int port){
+struct sockaddr_in createAddr(string ip, int port){
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    if (inet_aton(ip, &addr.sin_addr) == 0) {
+    if (inet_aton((char *)ip.c_str(), &addr.sin_addr) == 0) {
         cerr << "inet_aton() failed" << endl;
         exit(1);
     }
     return addr;
+}
+
+pair<string, int> convertAddr(struct sockaddr_in addr) {
+    return make_pair(inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
 }
 
 int openSocket(int port) {
@@ -36,7 +40,7 @@ int openSocket(int port) {
 	return serv_sock;
 }
 
-inline void sendUDP(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) {
+void sendUDP(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) {
     strcpy(request.checksum, hashDatagram(request).c_str());
     sendto(socket, &request, sizeof(request), 0, (struct sockaddr*)&server_addr, server_addr_size);
 }

@@ -53,9 +53,6 @@ int main(int argc, char** argv) {
     if(!strcmp(argv[argc - 1], "create")) action = 0;
     if(!strcmp(argv[argc - 1], "join")) action = 1;
 
-	/* string x = aesEncrypt("00000000000000000000000asdkjaldaldiasdhlaksdhakljdshaksdjahskdlhljkasdjkjh00000", md5("abc123"), "0123456789abc123"); */
-	/* cout << x.size() << ": " << x << endl;; */
-
     if(service == 1) {
         if(strlen(server_ip) or strlen(room_name) or strlen(room_pswd)) {
             print_usage();
