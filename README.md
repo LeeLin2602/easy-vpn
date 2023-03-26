@@ -5,6 +5,7 @@ My goal is to develop a simple vpn that allows multi-connections.
 Requirement:
 ```
 # sudo apt-get install libboost-all-dev libssl-dev
+# make
 ```
 
 Usage:
