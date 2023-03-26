@@ -37,43 +37,59 @@ int openSocket(int port) {
 }
 
 inline void sendUDP(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) {
+    strcpy(request.checksum, hashDatagram(request).c_str());
     sendto(socket, &request, sizeof(request), 0, (struct sockaddr*)&server_addr, server_addr_size);
 }
 
-struct datagram sendUDPrequest(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) {
-    struct datagram reply;
+struct datagram keepSending(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) {
     fd_set read_fds;
     struct timeval timeout;
     
     
     while(1) {
+        
         FD_ZERO(&read_fds);
         FD_SET(socket, &read_fds);
 
         sendUDP(socket, request, server_addr, server_addr_size);
+        
+        
         timeout.tv_sec = 5;
         timeout.tv_usec = 0;
         if(select(socket + 1, &read_fds, NULL, NULL, &timeout) <= 0) 
             cerr << "Unable to communicate with server. Retrying." << endl;
         else {
+            struct datagram reply;
             struct sockaddr_in serv_addr;
             socklen_t serv_addr_size;
             int recv_size = recvfrom(socket, &reply, sizeof(reply), 0, (struct sockaddr*)&serv_addr, &serv_addr_size);
-            if(recv_size < -1) {
+            if(recv_size == -1) {
                 cerr << "recvform failed. Retrying" << endl;
-                continue;
-            }
-            if(recv_size != sizeof(reply)) {
+            } else if(recv_size != sizeof(reply)) {
                 cerr << "Data corruption. Retrying" << endl;
-                continue;
-            }
-            if(serv_addr.sin_addr.s_addr != server_addr.sin_addr.s_addr) {
-                cerr << "Unexpected sender. Retrying." << endl;
-                cout << serv_addr.sin_addr.s_addr << " received, expected " << server_addr.sin_addr.s_addr << endl;
-                
-                continue;
-            }
-            return reply;
+                cerr << "Received " << recv_size << " and expected " << sizeof(reply) << endl;
+            /* } else if(serv_addr.sin_addr.s_addr != server_addr.sin_addr.s_addr) { */
+            /*     cerr << "Unexpected sender. Retrying." << endl; */
+            /*     cerr << serv_addr.sin_addr.s_addr << " received, expected " << server_addr.sin_addr.s_addr << endl; */
+            /* } */
+            } else return reply; 
+            sleep(1);
         }
+    }
+}
+struct datagram sendUDPrequest(int socket, struct datagram request, struct sockaddr_in server_addr, socklen_t &server_addr_size) {
+    struct datagram reply;
+    
+    
+    while(1) {
+        reply = keepSending(socket, request, server_addr, server_addr_size);
+        if(hashDatagram(reply) != reply.checksum) {
+            cerr << "Data corruption. Retrying" << endl;
+            cerr << "Received " << hashDatagram(reply) << ", " << endl;
+            cerr << "Expected " << reply.checksum << "." << endl;
+            sleep(1);
+            continue;
+        }
+        return reply;
     }
 }

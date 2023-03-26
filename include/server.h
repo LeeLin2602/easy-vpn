@@ -22,8 +22,8 @@ class IP_pool {
             for(int i = 0; i < 4; i++) network_id = network_id * 256 + ip[i];
             for(int i = 1; i <= 254; i++) pool.insert(i);
         }
-        int getIP() {
-            if(pool.empty()) return -1;
+        unsigned getIP() {
+            if(pool.empty()) return 0;
             int IP = *pool.begin();
             pool.erase(*pool.begin());
             return network_id + IP;
@@ -39,13 +39,16 @@ class Room {
         string name;
         string pswd;
     public:
+        map<unsigned, struct sockaddr_in> table;
         Room(char *room_name, char *room_pswd, char *pool_ip) {
             pool = new IP_pool(pool_ip);
             name = room_name;
             pswd = room_pswd;
         }
-        int getIP() {
-            return pool -> getIP();
+        unsigned getIP(struct sockaddr_in addr) {
+            unsigned res;
+            table[res = pool -> getIP()] = addr;
+            return res;
         }
 };
 

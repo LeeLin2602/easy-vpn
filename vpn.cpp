@@ -41,17 +41,20 @@ int main(int argc, char** argv) {
             }
         } 
         if(strcmp(argv[i], "-h") == 0 and i + 1 < argc and strlen(argv[i + 1]) < 16) 
-            strcpy(server_ip, argv[i + 1]);
+            strncpy(server_ip, argv[i + 1], 15);
         if(strcmp(argv[i], "-r") == 0 and i + 1 < argc and strlen(argv[i + 1]) < 64) 
-            strcpy(room_name, argv[i + 1]);
+            strncpy(room_name, argv[i + 1], 63);
         if(strcmp(argv[i], "-p") == 0 and i + 1 < argc and strlen(argv[i + 1]) < 64) 
-            strcpy(room_pswd, argv[i + 1]);
+            strncpy(room_pswd, argv[i + 1], 63);
         if(strcmp(argv[i], "-P") == 0 and i + 1 < argc and strlen(argv[i + 1]) < 16) 
-            strcpy(ip_pool, argv[i + 1]);
+            strncpy(ip_pool, argv[i + 1], 15);
     }
     
     if(!strcmp(argv[argc - 1], "create")) action = 0;
     if(!strcmp(argv[argc - 1], "join")) action = 1;
+
+	/* string x = aesEncrypt("00000000000000000000000asdkjaldaldiasdhlaksdhakljdshaksdjahskdlhljkasdjkjh00000", md5("abc123"), "0123456789abc123"); */
+	/* cout << x.size() << ": " << x << endl;; */
 
     if(service == 1) {
         if(strlen(server_ip) or strlen(room_name) or strlen(room_pswd)) {
