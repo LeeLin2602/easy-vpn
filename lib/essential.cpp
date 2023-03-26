@@ -20,7 +20,8 @@ void sniffer(int socket, int tun, struct sockaddr_in server_addr, char *room_nam
         int n = read(tun, buf, buf_size);
         string frame; for(int i = 0; i < n; i++) frame.push_back(buf[i]);
 		frame = aesEncrypt(frame, md5(room_pswd), "0000000000000000");
-		struct datagram traffic; memset(&traffic, 0, sizeof(traffic));
+
+        struct datagram traffic; memset(&traffic, 0, sizeof(traffic));
         strcpy(traffic.room, room_name);
 	    traffic.action = forward_traffic;	
         for(long unsigned int i = 0; i < frame.size(); i ++) traffic.payload[i] = frame[i];
@@ -31,6 +32,7 @@ void sniffer(int socket, int tun, struct sockaddr_in server_addr, char *room_nam
 
         sendUDP(socket, traffic, serv_addr, serv_addr_size);
     }
+
 }
 
 void createRoom(int socket, struct sockaddr_in server_addr, char *room_name, char *room_pswd, char *ip_pool) {
@@ -107,11 +109,15 @@ void UDPClient(int socket, int tun, char *server_ip, char *pswd) {
             continue;
         }
 
-        string frame; for(int i = 0; i < packet_in.length; i++) frame.push_back(packet_in.payload[i]);
-		frame = aesDecrypt(frame, md5(pswd), "0000000000000000");
-        write(tun, (char *)frame.c_str(), frame.size());
-
+        try {
+            string frame; for(int i = 0; i < packet_in.length; i++) frame.push_back(packet_in.payload[i]);
+            frame = aesDecrypt(frame, md5(pswd), "0000000000000000");
+            write(tun, (char *)frame.c_str(), frame.size());
+        } catch (std::exception &e) {
+            cerr << "Unable to decrypt packet." << endl;
+        }
     }
+
 }
 
 void launchClient(char *server_ip, int service_port, char *room_name, char *room_pswd, char *ip_pool, int action) {
@@ -215,6 +221,10 @@ void launchUDPserver(Server *server, int service_port) {
         } else if(packet_in.action == forward_traffic) {
             for(auto [ip, addr]: server -> rooms[packet_in.room] -> table) {
                 struct sockaddr_in guest = createAddr(inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+                if(strcmp(inet_ntoa(guest.sin_addr), inet_ntoa(client_addr.sin_addr)) == 0 and guest.sin_port == client_addr.sin_port) {
+                    cout << "EQ" << endl;
+                    continue;
+                }
                 socklen_t guest_size = sizeof(guest);
                 sendUDP(socket, packet_in, guest, guest_size);
             }

@@ -9,7 +9,7 @@
 
 std::string sha256(const std::string& message); 
 std::string md5(const std::string& input);
-std::string aesEncrypt(const std::string& plaintext, const std::string& key, const std::string& iv);
-std::string aesDecrypt(const std::string& ciphertext, const std::string& key, const std::string& iv);
+std::string aesEncrypt(std::string plaintext, const std::string& key, const std::string& iv);
+std::string aesDecrypt(std::string ciphertext, const std::string& key, const std::string& iv);
 /* std::string aesEncrypt(const std::string& password, const std::string& data) */
 /* std::string aesDecrypt(const std::string& password, const std::string& strData) */

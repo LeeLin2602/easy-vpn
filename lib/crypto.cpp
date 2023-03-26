@@ -16,7 +16,7 @@ std::string sha256(const std::string& message) {
     return ss.str();
 }
 
-std::string aesEncrypt(const std::string& plaintext, const std::string& key, const std::string& iv) {
+std::string aesEncrypt(std::string plaintext, const std::string& key, const std::string& iv) {
     std::string ciphertext;
 
     // Set up the AES key and IV
@@ -37,7 +37,7 @@ std::string aesEncrypt(const std::string& plaintext, const std::string& key, con
 }
 
 // Decrypt a string using AES
-std::string aesDecrypt(const std::string& ciphertext, const std::string& key, const std::string& iv) {
+std::string aesDecrypt(std::string ciphertext, const std::string& key, const std::string& iv) {
     std::string plaintext;
 
     // Set up the AES key and IV
